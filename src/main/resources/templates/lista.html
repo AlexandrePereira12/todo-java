@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <title>LISTA <span th:text="${list.getName()}"></span></title>
+    </head>
+    <body class="h-full">
+        <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+            <div class="flex justify-end sm:mx-auto sm:w-full sm:max-w-sm">
+                <p th:text="${auth.getName()}"></p>&nbsp;
+                <a class="text-blue-600"th:href="@{/logout}">Sair</a>&nbsp;
+                <a class="text-red-500" th:href="@{/}">Voltar</a>
+            </div>
+            <div class="sm:mx-auto sm:w-full sm:max-w-sm">
+                <h2 class="mt-10 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">LISTA <span th:text="${list.getName()}"></span></h2>
+            </div>
+
+            <div class="flex flex-row justify-end sm:mx-auto sm:w-full sm:max-w-sm">
+                <button th:data-list="${list.getId()}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded novo">Novo</button>
+            </div>
+
+            <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+                <table id="tabela" class="table-auto min-w-full text-left text-sm font-light text-surface dark:text-black">
+                    <thead class="border-b border-neutral-200 font-medium dark:border-white/10">
+                        <tr>
+                            <th scope="col" class="px-6 py-4">Descrição</th>
+                            <th scope="col" class="px-6 py-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="item: ${list.getItems()}" class="border-b border-neutral-200 dark:border-white/10">
+                            <td class="whitespace-nowrap px-6 py-4 font-medium" th:text="${item.getDescription()}"></td>
+                            <td>
+                                <span>Concluir </span>
+                                <input th:data-item="${item.getId()}" th:checked="${item.getChecked}" type="checkbox" value="" class="concluir w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded-sm focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
+                                <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded remover" th:data-item="${item.getId()}">Remover</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <script>
+            $(".concluir").click((e) => {
+                let id = $(e.target).data("item");
+                Swal.fire({
+                    didOpen: () => Swal.showLoading(),
+                    allowEscapeKey: false,
+                    allowOutsideClick: false
+                });
+                $.ajax({
+                    url:`/item/${id}/concluir`,
+                    method:"PATCH",
+                    success: () =>
+                    {
+                        window.location.reload();
+                    },
+                    error: (result) => {
+                        console.log(result);
+                        Swal.hideLoading();
+                        Swal.fire({
+                            title:"Erro em concluir a tarefa",
+                            icon:"error"
+                        });
+                    }
+                });
+            });
+
+            $(".remover").click((e) => {
+                let list_id = $(e.target).data("lista");
+                let item_id = $(e.target).data("item");
+                Swal.fire({
+                    title:"Deseja realmente remover este item?",
+                    text:"Tem certeza que deseja remover este item? Essa remoção não poderá ser revertida",
+                    icon:"info",
+                    confirmButtonText:"Sim",
+                    cancelButtonText:"Não",
+                    showCancelButton: true,
+                    showLoaderOnConfirm: true
+                }).then((result) => {
+                    if(result.isConfirmed)
+                    {
+                        Swal.fire({
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            allowEnterKey: false,
+                            showConfirmButton: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+    
+                        $.ajax({
+                            url:"/item/"+item_id,
+                            method:"DELETE",
+                            success: () => {
+                                Swal.hideLoading();
+                                Swal.fire({
+                                    title:"Removido com sucesso!",
+                                    icon:"success"
+                                }).then((r) => window.location.reload());
+                            }, 
+                            error: (result) => {
+                                console.log(result);
+                                Swal.hideLoading();
+                                Swal.fire({
+                                    title:"Erro em remover",
+                                    icon:"error"
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+
+            $(".novo").click((e) => {
+                let id = $(e.target).data("list");
+                Swal.fire({
+                    title:"Novo Item",
+                    showCancelButton:true,
+                    inputLabel:"Descrição",
+                    input:"text",
+                    inputValidator: (val) => {if(!val || val.length == 0) return "Descrição não pode ser vazio";},
+                }).then((result) => {
+                    if(result.isConfirmed)
+                    {
+                        Swal.fire({
+                            allowOutsideClick: false,
+                            allowEscapeKey: false,
+                            showConfirmButton: false,
+                            didOpen: () => {
+                                Swal.showLoading();
+                            }
+                        });
+    
+                        $.ajax({
+                            url:`/lista/${id}/item`,
+                            method:"POST",
+                            data: {
+                                description:result.value
+                            },
+                            success: () => {
+                                Swal.hideLoading();
+                                Swal.fire({
+                                    title:"Item criado com sucesso!",
+                                    icon:"success"
+                                });
+                            }, 
+                            error: (result) => {
+                                console.log(result);
+                                Swal.hideLoading();
+                                Swal.fire({
+                                    title:"Erro em criar: "+result?.responseJSON?.msg??"",
+                                    icon:"error"
+                                });
+                            }
+                        });
+                    }
+                });
+            })
+        </script>
+    </body>
+</html>
